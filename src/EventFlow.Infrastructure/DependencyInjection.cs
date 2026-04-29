@@ -1,4 +1,7 @@
+using EventFlow.Application.Abstractions.Auth;
 using EventFlow.Application.Abstractions.Persistence;
+using EventFlow.Application.Auth;
+using EventFlow.Infrastructure.Auth;
 using EventFlow.Infrastructure.Persistence.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,8 +15,12 @@ public static class DependencyInjection
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
+        services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.AddPersistence(configuration);
+        services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
+        services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<IEventoRepository, EventoRepository>();
+        services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 
         return services;
     }

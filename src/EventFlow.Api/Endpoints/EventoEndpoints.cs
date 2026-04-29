@@ -12,6 +12,7 @@ public static class EventoEndpoints
             .WithTags("Eventos");
 
         group.MapPost("/", CriarAsync)
+            .RequireAuthorization(policy => policy.RequireRole("Admin"))
             .WithName("CriarEvento");
 
         group.MapGet("/", ListarAsync)
@@ -21,9 +22,11 @@ public static class EventoEndpoints
             .WithName("ObterEventoPorId");
 
         group.MapPut("/{id:guid}", AtualizarAsync)
+            .RequireAuthorization(policy => policy.RequireRole("Admin"))
             .WithName("AtualizarEvento");
 
         group.MapDelete("/{id:guid}", ExcluirAsync)
+            .RequireAuthorization(policy => policy.RequireRole("Admin"))
             .WithName("ExcluirEvento");
 
         return app;

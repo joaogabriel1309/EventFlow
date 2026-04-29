@@ -1,13 +1,41 @@
+using System.Security.Claims;
+using System.Text;
 using EventFlow.Application;
+using EventFlow.Application.Auth;
 using EventFlow.Api.Endpoints;
 using EventFlow.Infrastructure;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var jwtOptions = builder.Configuration
+    .GetSection(JwtOptions.SectionName)
+    .Get<JwtOptions>() ?? new JwtOptions();
 
 builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration);
 
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidAudience = jwtOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey)),
+            RoleClaimType = ClaimTypes.Role,
+            NameClaimType = ClaimTypes.Name
+        };
+    });
+
+builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
 
@@ -18,7 +46,13 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGet("/", () => Results.Ok(new
 {
@@ -28,6 +62,7 @@ app.MapGet("/", () => Results.Ok(new
 }));
 
 app.MapHealthChecks("/health");
+app.MapAuthEndpoints();
 app.MapEventoEndpoints();
 
 app.Run();
