@@ -1,4 +1,5 @@
 using EventFlow.Application;
+using EventFlow.Api.Endpoints;
 using EventFlow.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,5 +28,6 @@ app.MapGet("/", () => Results.Ok(new
 }));
 
 app.MapHealthChecks("/health");
+app.MapEventoEndpoints();
 
 app.Run();

@@ -1,3 +1,5 @@
+using EventFlow.Application.Abstractions.Persistence;
+using EventFlow.Infrastructure.Persistence.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using EventFlow.Infrastructure.Extensions;
@@ -11,6 +13,7 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddPersistence(configuration);
+        services.AddScoped<IEventoRepository, EventoRepository>();
 
         return services;
     }

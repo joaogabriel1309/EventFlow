@@ -1,6 +1,35 @@
-@EventFlow.Api_HostAddress = http://localhost:5217
+@EventFlow.Api_HostAddress = https://localhost:7262
 
-GET {{EventFlow.Api_HostAddress}}/weatherforecast/
+GET {{EventFlow.Api_HostAddress}}/health
 Accept: application/json
+
+###
+
+GET {{EventFlow.Api_HostAddress}}/api/eventos
+Accept: application/json
+
+###
+
+POST {{EventFlow.Api_HostAddress}}/api/eventos
+Content-Type: application/json
+
+{
+  "titulo": "Summit de Tecnologia 2026",
+  "descricao": "Evento focado em arquitetura, produtos digitais e escala.",
+  "dataHoraInicio": "2026-08-15T13:00:00Z",
+  "dataHoraFim": "2026-08-15T22:00:00Z",
+  "local": "Centro de Convencoes de Cuiaba",
+  "capacidade": 500,
+  "preco": 199.90,
+  "midias": [
+    {
+      "url": "https://cdn.eventflow.local/eventos/summit-2026/capa.jpg",
+      "tipo": 1,
+      "alt": "Banner principal do Summit de Tecnologia 2026",
+      "destaque": true,
+      "ordem": 0
+    }
+  ]
+}
 
 ###
