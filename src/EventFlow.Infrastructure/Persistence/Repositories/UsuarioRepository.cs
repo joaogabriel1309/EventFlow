@@ -25,4 +25,15 @@ public sealed class UsuarioRepository(EventFlowDbContext dbContext) : IUsuarioRe
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Email == email, cancellationToken);
     }
+
+    public async Task<Usuario?> GetTrackedByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        return await dbContext.Usuarios
+            .FirstOrDefaultAsync(x => x.Email == email, cancellationToken);
+    }
+
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

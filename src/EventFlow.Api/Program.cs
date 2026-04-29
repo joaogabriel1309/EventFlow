@@ -3,6 +3,7 @@ using System.Text;
 using EventFlow.Application;
 using EventFlow.Application.Auth;
 using EventFlow.Api.Endpoints;
+using EventFlow.Api.Extensions;
 using EventFlow.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -64,5 +65,7 @@ app.MapGet("/", () => Results.Ok(new
 app.MapHealthChecks("/health");
 app.MapAuthEndpoints();
 app.MapEventoEndpoints();
+
+await app.InitializeAsync();
 
 app.Run();

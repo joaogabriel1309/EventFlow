@@ -15,10 +15,12 @@ public static class DependencyInjection
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
+        services.Configure<AdminBootstrapOptions>(configuration.GetSection(AdminBootstrapOptions.SectionName));
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.AddPersistence(configuration);
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenService, JwtTokenService>();
+        services.AddScoped<AdminBootstrapper>();
         services.AddScoped<IEventoRepository, EventoRepository>();
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 
