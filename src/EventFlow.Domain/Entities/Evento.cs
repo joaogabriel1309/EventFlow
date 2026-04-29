@@ -6,6 +6,10 @@ public sealed class Evento : Entity
 {
     private readonly List<MidiaEvento> _midias = [];
 
+    private Evento()
+    {
+    }
+
     public Evento(
         string titulo,
         string descricao,

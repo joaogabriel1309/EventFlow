@@ -5,6 +5,10 @@ namespace EventFlow.Domain.Entities;
 
 public sealed class Inscricao : Entity
 {
+    private Inscricao()
+    {
+    }
+
     public Inscricao(
         Guid eventoId,
         Guid usuarioId,

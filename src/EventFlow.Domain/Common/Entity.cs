@@ -2,6 +2,11 @@ namespace EventFlow.Domain.Common;
 
 public abstract class Entity
 {
+    protected Entity()
+    {
+        Id = Guid.NewGuid();
+    }
+
     protected Entity(Guid? id = null)
     {
         Id = id ?? Guid.NewGuid();

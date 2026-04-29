@@ -5,6 +5,10 @@ namespace EventFlow.Domain.Entities;
 
 public sealed class MidiaEvento : Entity
 {
+    private MidiaEvento()
+    {
+    }
+
     public MidiaEvento(
         string url,
         TipoMidiaEvento tipo,

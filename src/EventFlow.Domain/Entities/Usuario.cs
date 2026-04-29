@@ -5,6 +5,10 @@ namespace EventFlow.Domain.Entities;
 
 public sealed class Usuario : Entity
 {
+    private Usuario()
+    {
+    }
+
     public Usuario(
         string nome,
         string email,
