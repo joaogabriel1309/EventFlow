@@ -1,4 +1,4 @@
-@EventFlow.Api_HostAddress = https://localhost:7262
+@EventFlow.Api_HostAddress = http://localhost:5217
 
 GET {{EventFlow.Api_HostAddress}}/health
 Accept: application/json
@@ -31,5 +31,33 @@ Content-Type: application/json
     }
   ]
 }
+
+###
+
+PUT {{EventFlow.Api_HostAddress}}/api/eventos/5276a126-1323-4942-b53a-2633c6e795f8
+Content-Type: application/json
+
+{
+  "titulo": "Summit de Tecnologia 2026 - Atualizado",
+  "descricao": "Evento focado em arquitetura, produtos digitais, escala e observabilidade.",
+  "dataHoraInicio": "2026-08-15T14:00:00Z",
+  "dataHoraFim": "2026-08-15T23:00:00Z",
+  "local": "Centro de Eventos do Pantanal",
+  "capacidade": 650,
+  "preco": 249.90,
+  "midias": [
+    {
+      "url": "https://cdn.eventflow.local/eventos/summit-2026/capa-v2.jpg",
+      "tipo": 1,
+      "alt": "Banner atualizado do Summit de Tecnologia 2026",
+      "destaque": true,
+      "ordem": 0
+    }
+  ]
+}
+
+###
+
+DELETE {{EventFlow.Api_HostAddress}}/api/eventos/5276a126-1323-4942-b53a-2633c6e795f8
 
 ###

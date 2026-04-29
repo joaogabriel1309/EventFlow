@@ -20,6 +20,12 @@ public static class EventoEndpoints
         group.MapGet("/{id:guid}", ObterPorIdAsync)
             .WithName("ObterEventoPorId");
 
+        group.MapPut("/{id:guid}", AtualizarAsync)
+            .WithName("AtualizarEvento");
+
+        group.MapDelete("/{id:guid}", ExcluirAsync)
+            .WithName("ExcluirEvento");
+
         return app;
     }
 
@@ -58,5 +64,35 @@ public static class EventoEndpoints
     {
         var response = await eventoService.ObterPorIdAsync(id, cancellationToken);
         return response is null ? Results.NotFound() : Results.Ok(response);
+    }
+
+    private static async Task<IResult> AtualizarAsync(
+        Guid id,
+        AtualizarEventoRequest request,
+        IEventoService eventoService,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await eventoService.AtualizarAsync(id, request, cancellationToken);
+            return response is null ? Results.NotFound() : Results.Ok(response);
+        }
+        catch (ValidationException validationException)
+        {
+            return Results.ValidationProblem(validationException.Errors
+                .GroupBy(x => x.PropertyName)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Select(x => x.ErrorMessage).ToArray()));
+        }
+    }
+
+    private static async Task<IResult> ExcluirAsync(
+        Guid id,
+        IEventoService eventoService,
+        CancellationToken cancellationToken)
+    {
+        var excluido = await eventoService.ExcluirAsync(id, cancellationToken);
+        return excluido ? Results.NoContent() : Results.NotFound();
     }
 }

@@ -12,6 +12,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IEventoService, EventoService>();
         services.AddScoped<IValidator<CriarEventoRequest>, CriarEventoRequestValidator>();
+        services.AddScoped<IValidator<AtualizarEventoRequest>, AtualizarEventoRequestValidator>();
 
         return services;
     }
