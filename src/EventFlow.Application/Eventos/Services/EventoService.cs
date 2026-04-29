@@ -1,4 +1,5 @@
 using EventFlow.Application.Abstractions.Persistence;
+using EventFlow.Application.Common.Contracts;
 using EventFlow.Application.Eventos.Contracts;
 using EventFlow.Domain.Entities;
 using EventFlow.Domain.Enums;
@@ -9,7 +10,8 @@ namespace EventFlow.Application.Eventos.Services;
 public sealed class EventoService(
     IEventoRepository eventoRepository,
     IValidator<CriarEventoRequest> criarEventoValidator,
-    IValidator<AtualizarEventoRequest> atualizarEventoValidator) : IEventoService
+    IValidator<AtualizarEventoRequest> atualizarEventoValidator,
+    IValidator<ListarEventosRequest> listarEventosValidator) : IEventoService
 {
     public async Task<EventoResponse> CriarAsync(CriarEventoRequest request, CancellationToken cancellationToken = default)
     {
@@ -85,10 +87,22 @@ public sealed class EventoService(
         return Map(evento, midias);
     }
 
-    public async Task<IReadOnlyList<EventoResponse>> ListarAsync(CancellationToken cancellationToken = default)
+    public async Task<PagedResult<EventoResponse>> ListarAsync(
+        ListarEventosRequest request,
+        CancellationToken cancellationToken = default)
     {
-        var eventos = await eventoRepository.ListAsync(cancellationToken);
-        return eventos.Select(evento => Map(evento)).ToArray();
+        await listarEventosValidator.ValidateAndThrowAsync(request, cancellationToken);
+
+        var (items, totalItems) = await eventoRepository.ListAsync(request, cancellationToken);
+        var mappedItems = items.Select(evento => Map(evento)).ToArray();
+        var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)request.PageSize);
+
+        return new PagedResult<EventoResponse>(
+            mappedItems,
+            request.Page,
+            request.PageSize,
+            totalItems,
+            totalPages);
     }
 
     public async Task<bool> ExcluirAsync(Guid id, CancellationToken cancellationToken = default)

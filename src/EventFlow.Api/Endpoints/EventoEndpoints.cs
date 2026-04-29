@@ -50,11 +50,31 @@ public static class EventoEndpoints
     }
 
     private static async Task<IResult> ListarAsync(
+        [AsParameters] ListarEventosQuery query,
         IEventoService eventoService,
         CancellationToken cancellationToken)
     {
-        var response = await eventoService.ListarAsync(cancellationToken);
-        return Results.Ok(response);
+        try
+        {
+            var request = new ListarEventosRequest(
+                query.Busca,
+                query.Local,
+                query.DataInicio,
+                query.DataFim,
+                query.Page,
+                query.PageSize);
+
+            var response = await eventoService.ListarAsync(request, cancellationToken);
+            return Results.Ok(response);
+        }
+        catch (ValidationException validationException)
+        {
+            return Results.ValidationProblem(validationException.Errors
+                .GroupBy(x => x.PropertyName)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Select(x => x.ErrorMessage).ToArray()));
+        }
     }
 
     private static async Task<IResult> ObterPorIdAsync(
@@ -95,4 +115,12 @@ public static class EventoEndpoints
         var excluido = await eventoService.ExcluirAsync(id, cancellationToken);
         return excluido ? Results.NoContent() : Results.NotFound();
     }
+
+    public sealed record ListarEventosQuery(
+        string? Busca,
+        string? Local,
+        DateTimeOffset? DataInicio,
+        DateTimeOffset? DataFim,
+        int Page = 1,
+        int PageSize = 10);
 }
