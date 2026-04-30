@@ -20,6 +20,7 @@ type EventoFormState = {
   local: string;
   capacidade: number;
   preco: number;
+  midias: MidiaFormState[];
 };
 
 type FiltroFormState = {
@@ -28,6 +29,21 @@ type FiltroFormState = {
   dataInicio: string;
   dataFim: string;
 };
+
+type MidiaFormState = {
+  id: string;
+  url: string;
+  tipo: number;
+  alt: string;
+  destaque: boolean;
+  ordem: number;
+};
+
+const tiposMidia = [
+  { value: 1, label: "Capa" },
+  { value: 2, label: "Galeria" },
+  { value: 3, label: "Video" },
+] as const;
 
 function toDateTimeLocalValue(dateIso: string) {
   const date = new Date(dateIso);
@@ -45,6 +61,7 @@ function createEmptyForm(): EventoFormState {
     local: "",
     capacidade: 50,
     preco: 0,
+    midias: [],
   };
 }
 
@@ -66,6 +83,14 @@ function mapEventoToForm(evento: Evento): EventoFormState {
     local: evento.local,
     capacidade: evento.capacidade,
     preco: evento.preco,
+    midias: evento.midias.map((midia, index) => ({
+      id: midia.id,
+      url: midia.url,
+      tipo: midia.tipo,
+      alt: midia.alt ?? "",
+      destaque: midia.destaque,
+      ordem: midia.ordem || index + 1,
+    })),
   };
 }
 
@@ -84,6 +109,42 @@ export function AdminDashboard() {
   const [paginaAtual, setPaginaAtual] = useState(1);
 
   const eventos = resultado?.items ?? [];
+
+  function adicionarMidia() {
+    setForm((current) => ({
+      ...current,
+      midias: [
+        ...current.midias,
+        {
+          id: crypto.randomUUID(),
+          url: "",
+          tipo: 2,
+          alt: "",
+          destaque: current.midias.length === 0,
+          ordem: current.midias.length + 1,
+        },
+      ],
+    }));
+  }
+
+  function atualizarMidia(id: string, changes: Partial<MidiaFormState>) {
+    setForm((current) => ({
+      ...current,
+      midias: current.midias.map((midia) => (midia.id === id ? { ...midia, ...changes } : midia)),
+    }));
+  }
+
+  function removerMidia(id: string) {
+    setForm((current) => ({
+      ...current,
+      midias: current.midias
+        .filter((midia) => midia.id !== id)
+        .map((midia, index) => ({
+          ...midia,
+          ordem: index + 1,
+        })),
+    }));
+  }
 
   function carregarEventos(params: ListarEventosAdminParams = {}) {
     startLoadingTransition(async () => {
@@ -137,7 +198,13 @@ export function AdminDashboard() {
           local,
           capacidade,
           preco,
-          midias: [],
+          midias: form.midias.map((midia, index) => ({
+            url: midia.url.trim(),
+            tipo: midia.tipo,
+            alt: midia.alt.trim() || null,
+            destaque: midia.destaque,
+            ordem: midia.ordem || index + 1,
+          })),
         };
 
         if (eventoEmEdicaoId) {
@@ -475,6 +542,109 @@ export function AdminDashboard() {
                     required
                   />
                 </label>
+              </div>
+
+              <div className="space-y-4 rounded-[1.5rem] border border-stone-200 bg-stone-50/80 p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">Midias</p>
+                    <p className="text-sm text-stone-600">Adicione capa, galeria ou video ao evento.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={adicionarMidia}
+                    className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition-colors hover:bg-stone-100"
+                  >
+                    Adicionar midia
+                  </button>
+                </div>
+
+                {form.midias.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-stone-300 bg-white px-4 py-6 text-sm text-stone-600">
+                    Nenhuma midia adicionada ainda.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {form.midias.map((midia) => (
+                      <div key={midia.id} className="rounded-2xl border border-stone-200 bg-white p-4">
+                        <div className="grid gap-4 lg:grid-cols-[1.5fr_180px_1fr_120px_auto]">
+                          <label className="block">
+                            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">
+                              URL
+                            </span>
+                            <input
+                              value={midia.url}
+                              onChange={(event) => atualizarMidia(midia.id, { url: event.target.value })}
+                              className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors focus:border-orange-500"
+                              placeholder="https://..."
+                              required
+                            />
+                          </label>
+
+                          <label className="block">
+                            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">
+                              Tipo
+                            </span>
+                            <select
+                              value={midia.tipo}
+                              onChange={(event) => atualizarMidia(midia.id, { tipo: Number(event.target.value) })}
+                              className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors focus:border-orange-500"
+                            >
+                              {tiposMidia.map((tipo) => (
+                                <option key={tipo.value} value={tipo.value}>
+                                  {tipo.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label className="block">
+                            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">
+                              Alt
+                            </span>
+                            <input
+                              value={midia.alt}
+                              onChange={(event) => atualizarMidia(midia.id, { alt: event.target.value })}
+                              className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors focus:border-orange-500"
+                              placeholder="Descricao curta"
+                            />
+                          </label>
+
+                          <label className="block">
+                            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">
+                              Ordem
+                            </span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={midia.ordem}
+                              onChange={(event) => atualizarMidia(midia.id, { ordem: Number(event.target.value) })}
+                              className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors focus:border-orange-500"
+                            />
+                          </label>
+
+                          <div className="flex flex-wrap items-end gap-3">
+                            <label className="flex items-center gap-2 rounded-full border border-stone-300 px-4 py-3 text-sm text-stone-700">
+                              <input
+                                type="checkbox"
+                                checked={midia.destaque}
+                                onChange={(event) => atualizarMidia(midia.id, { destaque: event.target.checked })}
+                              />
+                              Destaque
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => removerMidia(midia.id)}
+                              className="rounded-full border border-stone-300 px-4 py-3 text-sm font-semibold text-stone-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {erro ? (
