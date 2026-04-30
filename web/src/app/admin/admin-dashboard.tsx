@@ -75,6 +75,7 @@ export function AdminDashboard() {
   const [erro, setErro] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [eventoEmEdicaoId, setEventoEmEdicaoId] = useState<string | null>(null);
+  const [eventoPendenteExclusaoId, setEventoPendenteExclusaoId] = useState<string | null>(null);
   const [carregando, startLoadingTransition] = useTransition();
   const [salvando, startSavingTransition] = useTransition();
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
@@ -212,6 +213,16 @@ export function AdminDashboard() {
         setExcluindoId(null);
       }
     });
+  }
+
+  function handleAskDelete(id: string) {
+    setErro(null);
+    setFeedback(null);
+    setEventoPendenteExclusaoId(id);
+  }
+
+  function handleCancelDelete() {
+    setEventoPendenteExclusaoId(null);
   }
 
   function handleFiltrar(formData: FormData) {
@@ -555,14 +566,33 @@ export function AdminDashboard() {
                         >
                           Editar
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(evento.id)}
-                          disabled={excluindoId === evento.id}
-                          className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {excluindoId === evento.id ? "Excluindo..." : "Excluir"}
-                        </button>
+                        {eventoPendenteExclusaoId === evento.id ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(evento.id)}
+                              disabled={excluindoId === evento.id}
+                              className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {excluindoId === evento.id ? "Excluindo..." : "Confirmar"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelDelete}
+                              className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition-colors hover:bg-stone-100"
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleAskDelete(evento.id)}
+                            className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                          >
+                            Excluir
+                          </button>
+                        )}
                       </div>
                     </div>
                   </article>
