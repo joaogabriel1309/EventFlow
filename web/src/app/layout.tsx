@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Bebas_Neue, Inter } from "next/font/google";
+import { TopBar } from "./components/top-bar";
 import "./globals.css";
 
 const headingFont = Bebas_Neue({
@@ -28,7 +29,10 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${headingFont.variable} ${bodyFont.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <TopBar />
+        {children}
+      </body>
     </html>
   );
 }
