@@ -1,20 +1,9 @@
-using Microsoft.AspNetCore.Http.Features;
+using EventFlow.Api.Services;
 
 namespace EventFlow.Api.Endpoints;
 
 public static class UploadEndpoints
 {
-    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".webp",
-        ".gif",
-        ".mp4",
-        ".webm"
-    };
-
     public static IEndpointRouteBuilder MapUploadEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/uploads")
@@ -30,7 +19,7 @@ public static class UploadEndpoints
 
     private static async Task<IResult> UploadMidiaAsync(
         HttpContext httpContext,
-        IWebHostEnvironment environment,
+        IS3UploadService uploadService,
         CancellationToken cancellationToken)
     {
         var form = await httpContext.Request.ReadFormAsync(cancellationToken);
@@ -41,46 +30,21 @@ public static class UploadEndpoints
             return Results.BadRequest(new { message = "Nenhum arquivo foi enviado." });
         }
 
-        var extension = Path.GetExtension(file.FileName);
-
-        if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.Contains(extension))
+        try
         {
-            return Results.BadRequest(new { message = "Tipo de arquivo nao suportado." });
+            var uploaded = await uploadService.UploadAsync(file, cancellationToken);
+
+            return Results.Ok(new
+            {
+                fileName = uploaded.FileName,
+                contentType = uploaded.ContentType,
+                key = uploaded.Key,
+                url = uploaded.Url
+            });
         }
-
-        const long maxFileSize = 25 * 1024 * 1024;
-
-        if (file.Length > maxFileSize)
+        catch (InvalidOperationException exception)
         {
-            return Results.BadRequest(new { message = "O arquivo excede o limite de 25 MB." });
+            return Results.BadRequest(new { message = exception.Message });
         }
-
-        var webRootPath = environment.WebRootPath;
-
-        if (string.IsNullOrWhiteSpace(webRootPath))
-        {
-            webRootPath = Path.Combine(environment.ContentRootPath, "wwwroot");
-        }
-
-        var uploadsDirectory = Path.Combine(webRootPath, "uploads", "eventos");
-        Directory.CreateDirectory(uploadsDirectory);
-
-        var safeFileName = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
-        var fullPath = Path.Combine(uploadsDirectory, safeFileName);
-
-        await using (var stream = File.Create(fullPath))
-        {
-            await file.CopyToAsync(stream, cancellationToken);
-        }
-
-        var baseUrl = $"{httpContext.Request.Scheme}://{httpContext.Request.Host}";
-        var publicUrl = $"{baseUrl}/uploads/eventos/{safeFileName}";
-
-        return Results.Ok(new
-        {
-            fileName = safeFileName,
-            contentType = file.ContentType,
-            url = publicUrl
-        });
     }
 }

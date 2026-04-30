@@ -288,6 +288,8 @@ web/node_modules/
 web/.next/
 api-run.log
 api-run.err.log
+/.env
+src/EventFlow.Api/.env
 
 # Visual Studio 6 build log
 *.plg
