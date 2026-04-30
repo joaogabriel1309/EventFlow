@@ -138,3 +138,43 @@ export async function atualizarEvento(id: string, payload: CriarEventoPayload) {
 
   return (await response.json()) as Evento;
 }
+
+export async function uploadMidia(file: File) {
+  const token = obterAccessToken();
+
+  if (!token) {
+    throw new Error("Faca login para enviar arquivos.");
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${getApiBaseUrl()}/api/uploads/midia`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let message = "Nao foi possivel enviar o arquivo.";
+
+    try {
+      const data = (await response.json()) as { message?: string };
+      if (data.message) {
+        message = data.message;
+      }
+    } catch {
+      // Keep the default message when the response body is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as {
+    fileName: string;
+    contentType: string;
+    url: string;
+  };
+}

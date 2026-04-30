@@ -7,6 +7,7 @@ import {
   criarEvento,
   excluirEvento,
   listarEventosAdmin,
+  uploadMidia,
   type ListarEventosAdminParams,
 } from "@/lib/admin-eventos";
 import { obterSessao, type UsuarioAutenticado } from "@/lib/auth";
@@ -101,6 +102,7 @@ export function AdminDashboard() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [eventoEmEdicaoId, setEventoEmEdicaoId] = useState<string | null>(null);
   const [eventoPendenteExclusaoId, setEventoPendenteExclusaoId] = useState<string | null>(null);
+  const [midiaEnviandoId, setMidiaEnviandoId] = useState<string | null>(null);
   const [carregando, startLoadingTransition] = useTransition();
   const [salvando, startSavingTransition] = useTransition();
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
@@ -144,6 +146,26 @@ export function AdminDashboard() {
           ordem: index + 1,
         })),
     }));
+  }
+
+  async function handleUploadMidia(id: string, file: File | null) {
+    if (!file) {
+      return;
+    }
+
+    setErro(null);
+    setFeedback(null);
+    setMidiaEnviandoId(id);
+
+    try {
+      const uploaded = await uploadMidia(file);
+      atualizarMidia(id, { url: uploaded.url });
+      setFeedback("Arquivo enviado com sucesso.");
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : "Nao foi possivel enviar o arquivo.");
+    } finally {
+      setMidiaEnviandoId(null);
+    }
   }
 
   function carregarEventos(params: ListarEventosAdminParams = {}) {
@@ -631,6 +653,15 @@ export function AdminDashboard() {
                                 onChange={(event) => atualizarMidia(midia.id, { destaque: event.target.checked })}
                               />
                               Destaque
+                            </label>
+                            <label className="rounded-full border border-stone-300 px-4 py-3 text-sm font-semibold text-stone-700 transition-colors hover:bg-stone-100">
+                              <input
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.webm"
+                                className="hidden"
+                                onChange={(event) => handleUploadMidia(midia.id, event.target.files?.[0] ?? null)}
+                              />
+                              {midiaEnviandoId === midia.id ? "Enviando..." : "Enviar arquivo"}
                             </label>
                             <button
                               type="button"

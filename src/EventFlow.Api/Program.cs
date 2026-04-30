@@ -68,6 +68,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+app.UseStaticFiles();
 app.UseCors(DevCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
@@ -82,6 +83,7 @@ app.MapGet("/", () => Results.Ok(new
 app.MapHealthChecks("/health");
 app.MapAuthEndpoints();
 app.MapEventoEndpoints();
+app.MapUploadEndpoints();
 
 await app.InitializeAsync();
 
