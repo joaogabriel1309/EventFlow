@@ -1,0 +1,83 @@
+import { obterAccessToken } from "@/lib/auth";
+import type { Evento, PagedResult } from "@/lib/eventos";
+
+export type CriarEventoPayload = {
+  titulo: string;
+  descricao: string;
+  dataHoraInicio: string;
+  dataHoraFim: string;
+  local: string;
+  capacidade: number;
+  preco: number;
+  midias: [];
+};
+
+const defaultApiBaseUrl = "http://localhost:5217";
+
+function getApiBaseUrl() {
+  return process.env.NEXT_PUBLIC_EVENTFLOW_API_URL?.trim() || process.env.EVENTFLOW_API_URL?.trim() || defaultApiBaseUrl;
+}
+
+function getAuthHeaders() {
+  const token = obterAccessToken();
+
+  if (!token) {
+    throw new Error("Faca login para acessar a area administrativa.");
+  }
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+export async function listarEventosAdmin() {
+  const response = await fetch(`${getApiBaseUrl()}/api/eventos?page=1&pageSize=20`, {
+    headers: getAuthHeaders(),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Nao foi possivel carregar os eventos.");
+  }
+
+  return (await response.json()) as PagedResult<Evento>;
+}
+
+export async function criarEvento(payload: CriarEventoPayload) {
+  const response = await fetch(`${getApiBaseUrl()}/api/eventos`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    let message = "Nao foi possivel criar o evento.";
+
+    try {
+      const data = (await response.json()) as { errors?: Record<string, string[]> };
+      const errors = data.errors ? Object.values(data.errors).flat() : [];
+
+      if (errors.length > 0) {
+        message = errors[0];
+      }
+    } catch {
+      // Keep the default message when the response body is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as Evento;
+}
+
+export async function excluirEvento(id: string) {
+  const response = await fetch(`${getApiBaseUrl()}/api/eventos/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error("Nao foi possivel excluir o evento.");
+  }
+}
