@@ -12,6 +12,15 @@ export type CriarEventoPayload = {
   midias: [];
 };
 
+export type ListarEventosAdminParams = {
+  busca?: string;
+  local?: string;
+  dataInicio?: string;
+  dataFim?: string;
+  page?: number;
+  pageSize?: number;
+};
+
 const defaultApiBaseUrl = "http://localhost:5217";
 
 function getApiBaseUrl() {
@@ -31,8 +40,29 @@ function getAuthHeaders() {
   };
 }
 
-export async function listarEventosAdmin() {
-  const response = await fetch(`${getApiBaseUrl()}/api/eventos?page=1&pageSize=20`, {
+export async function listarEventosAdmin(params: ListarEventosAdminParams = {}) {
+  const searchParams = new URLSearchParams();
+
+  if (params.busca?.trim()) {
+    searchParams.set("busca", params.busca.trim());
+  }
+
+  if (params.local?.trim()) {
+    searchParams.set("local", params.local.trim());
+  }
+
+  if (params.dataInicio?.trim()) {
+    searchParams.set("dataInicio", new Date(params.dataInicio).toISOString());
+  }
+
+  if (params.dataFim?.trim()) {
+    searchParams.set("dataFim", new Date(params.dataFim).toISOString());
+  }
+
+  searchParams.set("page", String(params.page ?? 1));
+  searchParams.set("pageSize", String(params.pageSize ?? 20));
+
+  const response = await fetch(`${getApiBaseUrl()}/api/eventos?${searchParams.toString()}`, {
     headers: getAuthHeaders(),
     cache: "no-store",
   });

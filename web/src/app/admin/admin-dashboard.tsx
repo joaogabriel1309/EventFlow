@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { atualizarEvento, criarEvento, excluirEvento, listarEventosAdmin } from "@/lib/admin-eventos";
+import {
+  atualizarEvento,
+  criarEvento,
+  excluirEvento,
+  listarEventosAdmin,
+  type ListarEventosAdminParams,
+} from "@/lib/admin-eventos";
 import { obterSessao, type UsuarioAutenticado } from "@/lib/auth";
-import { formatarData, formatarPreco, type Evento } from "@/lib/eventos";
+import { formatarData, formatarPreco, type Evento, type PagedResult } from "@/lib/eventos";
 
 type EventoFormState = {
   titulo: string;
@@ -14,6 +20,13 @@ type EventoFormState = {
   local: string;
   capacidade: number;
   preco: number;
+};
+
+type FiltroFormState = {
+  busca: string;
+  local: string;
+  dataInicio: string;
+  dataFim: string;
 };
 
 function toDateTimeLocalValue(dateIso: string) {
@@ -35,6 +48,15 @@ function createEmptyForm(): EventoFormState {
   };
 }
 
+function createEmptyFilters(): FiltroFormState {
+  return {
+    busca: "",
+    local: "",
+    dataInicio: "",
+    dataFim: "",
+  };
+}
+
 function mapEventoToForm(evento: Evento): EventoFormState {
   return {
     titulo: evento.titulo,
@@ -49,7 +71,7 @@ function mapEventoToForm(evento: Evento): EventoFormState {
 
 export function AdminDashboard() {
   const [usuario] = useState<UsuarioAutenticado | null>(() => obterSessao()?.usuario ?? null);
-  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [resultado, setResultado] = useState<PagedResult<Evento> | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [eventoEmEdicaoId, setEventoEmEdicaoId] = useState<string | null>(null);
@@ -57,20 +79,39 @@ export function AdminDashboard() {
   const [salvando, startSavingTransition] = useTransition();
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [form, setForm] = useState<EventoFormState>(createEmptyForm);
+  const [filtros, setFiltros] = useState<FiltroFormState>(createEmptyFilters);
+  const [paginaAtual, setPaginaAtual] = useState(1);
 
-  useEffect(() => {
+  const eventos = resultado?.items ?? [];
+
+  function carregarEventos(params: ListarEventosAdminParams = {}) {
     startLoadingTransition(async () => {
       if (!usuario) {
         return;
       }
 
       try {
-        const resultado = await listarEventosAdmin();
-        setEventos(resultado.items);
+        const proximaPagina = params.page ?? paginaAtual;
+        const resultadoApi = await listarEventosAdmin({
+          busca: params.busca ?? filtros.busca,
+          local: params.local ?? filtros.local,
+          dataInicio: params.dataInicio ?? filtros.dataInicio,
+          dataFim: params.dataFim ?? filtros.dataFim,
+          page: proximaPagina,
+          pageSize: 20,
+        });
+
+        setResultado(resultadoApi);
+        setPaginaAtual(resultadoApi.page);
       } catch (error) {
         setErro(error instanceof Error ? error.message : "Nao foi possivel carregar os eventos.");
       }
     });
+  }
+
+  useEffect(() => {
+    carregarEventos({ page: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario]);
 
   async function handleSubmit(formData: FormData) {
@@ -100,13 +141,27 @@ export function AdminDashboard() {
 
         if (eventoEmEdicaoId) {
           const eventoAtualizado = await atualizarEvento(eventoEmEdicaoId, payload);
-          setEventos((current) =>
-            current.map((evento) => (evento.id === eventoEmEdicaoId ? eventoAtualizado : evento)),
+          setResultado((current) =>
+            current
+              ? {
+                  ...current,
+                  items: current.items.map((evento) => (evento.id === eventoEmEdicaoId ? eventoAtualizado : evento)),
+                }
+              : current,
           );
           setFeedback("Evento atualizado com sucesso.");
         } else {
           const novoEvento = await criarEvento(payload);
-          setEventos((current) => [novoEvento, ...current]);
+          setResultado((current) =>
+            current
+              ? {
+                  ...current,
+                  items: [novoEvento, ...current.items].slice(0, current.pageSize),
+                  totalItems: current.totalItems + 1,
+                  totalPages: Math.ceil((current.totalItems + 1) / current.pageSize),
+                }
+              : current,
+          );
           setFeedback("Evento criado com sucesso.");
         }
 
@@ -140,7 +195,16 @@ export function AdminDashboard() {
     startLoadingTransition(async () => {
       try {
         await excluirEvento(id);
-        setEventos((current) => current.filter((evento) => evento.id !== id));
+        setResultado((current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.filter((evento) => evento.id !== id),
+                totalItems: Math.max(current.totalItems - 1, 0),
+                totalPages: Math.max(Math.ceil((current.totalItems - 1) / current.pageSize), 0),
+              }
+            : current,
+        );
         setFeedback("Evento removido com sucesso.");
       } catch (error) {
         setErro(error instanceof Error ? error.message : "Nao foi possivel excluir o evento.");
@@ -148,6 +212,34 @@ export function AdminDashboard() {
         setExcluindoId(null);
       }
     });
+  }
+
+  function handleFiltrar(formData: FormData) {
+    const proximosFiltros = {
+      busca: String(formData.get("busca") ?? ""),
+      local: String(formData.get("local") ?? ""),
+      dataInicio: String(formData.get("dataInicio") ?? ""),
+      dataFim: String(formData.get("dataFim") ?? ""),
+    };
+
+    setErro(null);
+    setFeedback(null);
+    setFiltros(proximosFiltros);
+    carregarEventos({ ...proximosFiltros, page: 1 });
+  }
+
+  function handleLimparFiltros() {
+    const vazios = createEmptyFilters();
+    setErro(null);
+    setFeedback(null);
+    setFiltros(vazios);
+    carregarEventos({ ...vazios, page: 1 });
+  }
+
+  function handleTrocarPagina(page: number) {
+    setErro(null);
+    setFeedback(null);
+    carregarEventos({ page });
   }
 
   if (!usuario) {
@@ -180,8 +272,8 @@ export function AdminDashboard() {
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-700">Painel admin</p>
             <h1 className="font-heading text-6xl uppercase leading-none text-stone-950">Gestao de eventos</h1>
             <p className="max-w-2xl text-base leading-8 text-stone-700">
-              Sessao autenticada como <strong>{usuario.nome}</strong>. Aqui ja usamos o JWT salvo no login para criar e
-              remover eventos no backend.
+              Sessao autenticada como <strong>{usuario.nome}</strong>. Aqui ja usamos o JWT salvo no login para criar,
+              editar e remover eventos no backend.
             </p>
           </div>
 
@@ -190,7 +282,7 @@ export function AdminDashboard() {
             <div className="mt-4 space-y-3 text-sm leading-7 text-stone-300">
               <p>{usuario.email}</p>
               <p>Papel: {usuario.papel}</p>
-              <p>{carregando ? "Sincronizando eventos..." : `${eventos.length} evento(s) carregado(s)`}</p>
+              <p>{carregando ? "Sincronizando eventos..." : `${resultado?.totalItems ?? 0} evento(s) encontrado(s)`}</p>
             </div>
             <Link
               href="/"
@@ -199,6 +291,81 @@ export function AdminDashboard() {
               Voltar para vitrine
             </Link>
           </div>
+        </section>
+
+        <section className="rounded-[2rem] border border-stone-200 bg-white p-7 shadow-[0_18px_45px_-30px_rgba(0,0,0,0.35)]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-500">Consulta</p>
+              <h2 className="font-heading text-4xl uppercase leading-none text-stone-950">Busca e filtros</h2>
+            </div>
+            <p className="max-w-xl text-sm leading-7 text-stone-600">
+              Refine a lista por texto, local e periodo usando os filtros nativos da API.
+            </p>
+          </div>
+
+          <form action={handleFiltrar} className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_1fr_180px_180px_auto]">
+            <label className="block">
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">Busca</span>
+              <input
+                name="busca"
+                value={filtros.busca}
+                onChange={(event) => setFiltros((current) => ({ ...current, busca: event.target.value }))}
+                className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors focus:border-orange-500"
+                placeholder="Titulo ou descricao"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">Local</span>
+              <input
+                name="local"
+                value={filtros.local}
+                onChange={(event) => setFiltros((current) => ({ ...current, local: event.target.value }))}
+                className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors focus:border-orange-500"
+                placeholder="Cidade ou espaco"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">De</span>
+              <input
+                type="date"
+                name="dataInicio"
+                value={filtros.dataInicio}
+                onChange={(event) => setFiltros((current) => ({ ...current, dataInicio: event.target.value }))}
+                className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors focus:border-orange-500"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">Ate</span>
+              <input
+                type="date"
+                name="dataFim"
+                value={filtros.dataFim}
+                onChange={(event) => setFiltros((current) => ({ ...current, dataFim: event.target.value }))}
+                className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors focus:border-orange-500"
+              />
+            </label>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <button
+                type="submit"
+                disabled={carregando}
+                className="rounded-full bg-stone-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-stone-400"
+              >
+                Filtrar
+              </button>
+              <button
+                type="button"
+                onClick={handleLimparFiltros}
+                className="rounded-full border border-stone-300 px-5 py-3 text-sm font-semibold text-stone-700 transition-colors hover:bg-stone-100"
+              >
+                Limpar
+              </button>
+            </div>
+          </form>
         </section>
 
         <section className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr]">
@@ -337,6 +504,11 @@ export function AdminDashboard() {
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-500">Acervo</p>
                 <h2 className="font-heading text-4xl uppercase leading-none text-stone-950">Eventos atuais</h2>
               </div>
+              {resultado && resultado.totalPages > 1 ? (
+                <p className="text-sm text-stone-600">
+                  Pagina {resultado.page} de {resultado.totalPages}
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-4">
@@ -397,6 +569,27 @@ export function AdminDashboard() {
                 ))
               )}
             </div>
+
+            {resultado && resultado.totalPages > 1 ? (
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleTrocarPagina(paginaAtual - 1)}
+                  disabled={carregando || paginaAtual <= 1}
+                  className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition-colors hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTrocarPagina(paginaAtual + 1)}
+                  disabled={carregando || paginaAtual >= resultado.totalPages}
+                  className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition-colors hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Proxima
+                </button>
+              </div>
+            ) : null}
           </div>
         </section>
       </main>
