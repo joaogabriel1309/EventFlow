@@ -62,8 +62,7 @@ public sealed class S3UploadService : IS3UploadService
             Key = objectKey,
             InputStream = stream,
             ContentType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
-            AutoCloseStream = false,
-            CannedACL = S3CannedACL.PublicRead
+            AutoCloseStream = false
         };
 
         await _amazonS3.PutObjectAsync(request, cancellationToken);
