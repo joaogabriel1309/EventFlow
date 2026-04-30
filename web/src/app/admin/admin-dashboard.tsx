@@ -2,35 +2,61 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { criarEvento, excluirEvento, listarEventosAdmin } from "@/lib/admin-eventos";
+import { atualizarEvento, criarEvento, excluirEvento, listarEventosAdmin } from "@/lib/admin-eventos";
 import { obterSessao, type UsuarioAutenticado } from "@/lib/auth";
 import { formatarData, formatarPreco, type Evento } from "@/lib/eventos";
 
-function toDateTimeLocalValue(date: Date) {
+type EventoFormState = {
+  titulo: string;
+  descricao: string;
+  dataHoraInicio: string;
+  dataHoraFim: string;
+  local: string;
+  capacidade: number;
+  preco: number;
+};
+
+function toDateTimeLocalValue(dateIso: string) {
+  const date = new Date(dateIso);
   const timezoneOffset = date.getTimezoneOffset();
   const localDate = new Date(date.getTime() - timezoneOffset * 60_000);
   return localDate.toISOString().slice(0, 16);
 }
 
-const initialForm = {
-  titulo: "",
-  descricao: "",
-  dataHoraInicio: toDateTimeLocalValue(new Date(Date.now() + 86_400_000)),
-  dataHoraFim: toDateTimeLocalValue(new Date(Date.now() + 90_000_000)),
-  local: "",
-  capacidade: 50,
-  preco: 0,
-};
+function createEmptyForm(): EventoFormState {
+  return {
+    titulo: "",
+    descricao: "",
+    dataHoraInicio: "",
+    dataHoraFim: "",
+    local: "",
+    capacidade: 50,
+    preco: 0,
+  };
+}
+
+function mapEventoToForm(evento: Evento): EventoFormState {
+  return {
+    titulo: evento.titulo,
+    descricao: evento.descricao,
+    dataHoraInicio: toDateTimeLocalValue(evento.dataHoraInicio),
+    dataHoraFim: toDateTimeLocalValue(evento.dataHoraFim),
+    local: evento.local,
+    capacidade: evento.capacidade,
+    preco: evento.preco,
+  };
+}
 
 export function AdminDashboard() {
   const [usuario] = useState<UsuarioAutenticado | null>(() => obterSessao()?.usuario ?? null);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [eventoEmEdicaoId, setEventoEmEdicaoId] = useState<string | null>(null);
   const [carregando, startLoadingTransition] = useTransition();
   const [salvando, startSavingTransition] = useTransition();
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState<EventoFormState>(createEmptyForm);
 
   useEffect(() => {
     startLoadingTransition(async () => {
@@ -47,7 +73,7 @@ export function AdminDashboard() {
     });
   }, [usuario]);
 
-  async function handleCreate(formData: FormData) {
+  async function handleSubmit(formData: FormData) {
     const titulo = String(formData.get("titulo") ?? "");
     const descricao = String(formData.get("descricao") ?? "");
     const dataHoraInicio = String(formData.get("dataHoraInicio") ?? "");
@@ -61,7 +87,7 @@ export function AdminDashboard() {
 
     startSavingTransition(async () => {
       try {
-        const novoEvento = await criarEvento({
+        const payload = {
           titulo,
           descricao,
           dataHoraInicio: new Date(dataHoraInicio).toISOString(),
@@ -70,15 +96,40 @@ export function AdminDashboard() {
           capacidade,
           preco,
           midias: [],
-        });
+        };
 
-        setEventos((current) => [novoEvento, ...current]);
-        setFeedback("Evento criado com sucesso.");
-        setForm(initialForm);
+        if (eventoEmEdicaoId) {
+          const eventoAtualizado = await atualizarEvento(eventoEmEdicaoId, payload);
+          setEventos((current) =>
+            current.map((evento) => (evento.id === eventoEmEdicaoId ? eventoAtualizado : evento)),
+          );
+          setFeedback("Evento atualizado com sucesso.");
+        } else {
+          const novoEvento = await criarEvento(payload);
+          setEventos((current) => [novoEvento, ...current]);
+          setFeedback("Evento criado com sucesso.");
+        }
+
+        setEventoEmEdicaoId(null);
+        setForm(createEmptyForm());
       } catch (error) {
-        setErro(error instanceof Error ? error.message : "Nao foi possivel criar o evento.");
+        setErro(error instanceof Error ? error.message : "Nao foi possivel salvar o evento.");
       }
     });
+  }
+
+  function handleEdit(evento: Evento) {
+    setErro(null);
+    setFeedback(null);
+    setEventoEmEdicaoId(evento.id);
+    setForm(mapEventoToForm(evento));
+  }
+
+  function handleCancelEdit() {
+    setErro(null);
+    setFeedback(null);
+    setEventoEmEdicaoId(null);
+    setForm(createEmptyForm());
   }
 
   function handleDelete(id: string) {
@@ -152,10 +203,14 @@ export function AdminDashboard() {
 
         <section className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr]">
           <div className="rounded-[2rem] border border-stone-200 bg-white p-7 shadow-[0_18px_45px_-30px_rgba(0,0,0,0.35)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-500">Novo evento</p>
-            <h2 className="mt-3 font-heading text-4xl uppercase leading-none text-stone-950">Cadastro rapido</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-500">
+              {eventoEmEdicaoId ? "Edicao de evento" : "Novo evento"}
+            </p>
+            <h2 className="mt-3 font-heading text-4xl uppercase leading-none text-stone-950">
+              {eventoEmEdicaoId ? "Atualizar cadastro" : "Cadastro rapido"}
+            </h2>
 
-            <form action={handleCreate} className="mt-6 space-y-4">
+            <form action={handleSubmit} className="mt-6 space-y-4">
               <label className="block">
                 <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">Titulo</span>
                 <input
@@ -254,13 +309,25 @@ export function AdminDashboard() {
                 </div>
               ) : null}
 
-              <button
-                type="submit"
-                disabled={salvando}
-                className="w-full rounded-full bg-stone-950 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-stone-400"
-              >
-                {salvando ? "Salvando..." : "Criar evento"}
-              </button>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  disabled={salvando}
+                  className="flex-1 rounded-full bg-stone-950 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-stone-400"
+                >
+                  {salvando ? "Salvando..." : eventoEmEdicaoId ? "Salvar alteracoes" : "Criar evento"}
+                </button>
+
+                {eventoEmEdicaoId ? (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="rounded-full border border-stone-300 px-4 py-3 text-sm font-semibold text-stone-700 transition-colors hover:bg-stone-100"
+                  >
+                    Cancelar
+                  </button>
+                ) : null}
+              </div>
             </form>
           </div>
 
@@ -308,14 +375,23 @@ export function AdminDashboard() {
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(evento.id)}
-                        disabled={excluindoId === evento.id}
-                        className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {excluindoId === evento.id ? "Excluindo..." : "Excluir"}
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(evento)}
+                          className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition-colors hover:bg-stone-100"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(evento.id)}
+                          disabled={excluindoId === evento.id}
+                          className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {excluindoId === evento.id ? "Excluindo..." : "Excluir"}
+                        </button>
+                      </div>
                     </div>
                   </article>
                 ))

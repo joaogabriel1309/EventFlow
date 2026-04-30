@@ -81,3 +81,30 @@ export async function excluirEvento(id: string) {
     throw new Error("Nao foi possivel excluir o evento.");
   }
 }
+
+export async function atualizarEvento(id: string, payload: CriarEventoPayload) {
+  const response = await fetch(`${getApiBaseUrl()}/api/eventos/${id}`, {
+    method: "PUT",
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    let message = "Nao foi possivel atualizar o evento.";
+
+    try {
+      const data = (await response.json()) as { errors?: Record<string, string[]> };
+      const errors = data.errors ? Object.values(data.errors).flat() : [];
+
+      if (errors.length > 0) {
+        message = errors[0];
+      }
+    } catch {
+      // Keep the default message when the response body is not JSON.
+    }
+
+    throw new Error(message);
+  }
+
+  return (await response.json()) as Evento;
+}
