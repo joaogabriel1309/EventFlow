@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+const string DevCorsPolicy = "DevCorsPolicy";
 
 var jwtOptions = builder.Configuration
     .GetSection(JwtOptions.SectionName)
@@ -36,6 +37,21 @@ builder.Services
         };
     });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(DevCorsPolicy, policy =>
+    {
+        policy
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+
+        if (builder.Environment.IsDevelopment())
+        {
+            policy.AllowAnyOrigin();
+        }
+    });
+});
+
 builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks();
 builder.Services.AddOpenApi();
@@ -52,6 +68,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+app.UseCors(DevCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 
