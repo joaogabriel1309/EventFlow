@@ -175,6 +175,7 @@ export async function uploadMidia(file: File) {
   return (await response.json()) as {
     fileName: string;
     contentType: string;
+    key: string;
     url: string;
   };
 }

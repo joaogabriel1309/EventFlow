@@ -7,6 +7,7 @@ namespace EventFlow.Api.Services;
 
 public sealed class S3UploadService : IS3UploadService
 {
+    private static readonly TimeSpan SignedUrlDuration = TimeSpan.FromHours(1);
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg",
@@ -67,14 +68,40 @@ public sealed class S3UploadService : IS3UploadService
 
         await _amazonS3.PutObjectAsync(request, cancellationToken);
 
-        var baseUrl = string.IsNullOrWhiteSpace(_options.PublicBaseUrl)
-            ? $"https://{_options.BucketName}.s3.{_options.Region}.amazonaws.com"
-            : _options.PublicBaseUrl.TrimEnd('/');
-
         return new S3UploadResult(
             safeFileName,
             request.ContentType,
             objectKey,
-            $"{baseUrl}/{objectKey}");
+            Resolve(objectKey));
+    }
+
+    public string Resolve(string storedValue)
+    {
+        var value = storedValue.Trim();
+
+        if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            value.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return value;
+        }
+
+        return CreateReadUrl(value);
+    }
+
+    private string CreateReadUrl(string objectKey)
+    {
+        if (!string.IsNullOrWhiteSpace(_options.PublicBaseUrl))
+        {
+            return $"{_options.PublicBaseUrl.TrimEnd('/')}/{objectKey}";
+        }
+
+        var request = new GetPreSignedUrlRequest
+        {
+            BucketName = _options.BucketName,
+            Key = objectKey,
+            Expires = DateTime.UtcNow.Add(SignedUrlDuration)
+        };
+
+        return _amazonS3.GetPreSignedURL(request);
     }
 }

@@ -9,6 +9,7 @@ using EventFlow.Api.Configuration;
 using EventFlow.Api.Endpoints;
 using EventFlow.Api.Extensions;
 using EventFlow.Api.Services;
+using EventFlow.Application.Eventos.Services;
 using EventFlow.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -30,9 +31,7 @@ var jwtOptions = builder.Configuration
     .GetSection(JwtOptions.SectionName)
     .Get<JwtOptions>() ?? new JwtOptions();
 
-var s3Options = builder.Configuration
-    .GetSection(S3StorageOptions.SectionName)
-    .Get<S3StorageOptions>() ?? new S3StorageOptions();
+var s3Options = S3ConfigurationResolver.Resolve(builder.Configuration);
 
 builder.Services
     .AddApplication()
@@ -40,20 +39,49 @@ builder.Services
 
 builder.Services
     .AddOptions<S3StorageOptions>()
-    .Bind(builder.Configuration.GetSection(S3StorageOptions.SectionName));
+    .Configure(options =>
+    {
+        options.AccessKey = s3Options.AccessKey;
+        options.SecretKey = s3Options.SecretKey;
+        options.Region = s3Options.Region;
+        options.BucketName = s3Options.BucketName;
+        options.PublicBaseUrl = s3Options.PublicBaseUrl;
+        options.KeyPrefix = s3Options.KeyPrefix;
+    });
 
 builder.Services.AddSingleton<IAmazonS3>(_ =>
 {
+    if (string.IsNullOrWhiteSpace(s3Options.Region))
+    {
+        throw new InvalidOperationException(
+            "A regiao da AWS nao foi configurada. Defina S3__Region ou AWS_REGION no arquivo .env.");
+    }
+
+    RegionEndpoint regionEndpoint;
+
+    try
+    {
+        regionEndpoint = RegionEndpoint.GetBySystemName(s3Options.Region);
+    }
+    catch (ArgumentException exception)
+    {
+        throw new InvalidOperationException(
+            $"Regiao AWS invalida: '{s3Options.Region}'. Exemplo valido: us-east-2.",
+            exception);
+    }
+
     var credentials = new BasicAWSCredentials(s3Options.AccessKey, s3Options.SecretKey);
     var config = new AmazonS3Config
     {
-        RegionEndpoint = RegionEndpoint.GetBySystemName(s3Options.Region)
+        RegionEndpoint = regionEndpoint
     };
 
     return new AmazonS3Client(credentials, config);
 });
 
-builder.Services.AddScoped<IS3UploadService, S3UploadService>();
+builder.Services.AddScoped<S3UploadService>();
+builder.Services.AddScoped<IS3UploadService>(serviceProvider => serviceProvider.GetRequiredService<S3UploadService>());
+builder.Services.AddScoped<IMidiaUrlResolver>(serviceProvider => serviceProvider.GetRequiredService<S3UploadService>());
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

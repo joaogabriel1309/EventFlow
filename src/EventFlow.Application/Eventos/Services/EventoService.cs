@@ -11,7 +11,8 @@ public sealed class EventoService(
     IEventoRepository eventoRepository,
     IValidator<CriarEventoRequest> criarEventoValidator,
     IValidator<AtualizarEventoRequest> atualizarEventoValidator,
-    IValidator<ListarEventosRequest> listarEventosValidator) : IEventoService
+    IValidator<ListarEventosRequest> listarEventosValidator,
+    IMidiaUrlResolver midiaUrlResolver) : IEventoService
 {
     public async Task<EventoResponse> CriarAsync(CriarEventoRequest request, CancellationToken cancellationToken = default)
     {
@@ -39,13 +40,13 @@ public sealed class EventoService(
 
         await eventoRepository.AddAsync(evento, cancellationToken);
 
-        return Map(evento);
+        return Map(evento, midiaUrlResolver);
     }
 
     public async Task<EventoResponse?> ObterPorIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var evento = await eventoRepository.GetByIdAsync(id, cancellationToken);
-        return evento is null ? null : Map(evento);
+        return evento is null ? null : Map(evento, midiaUrlResolver);
     }
 
     public async Task<EventoResponse?> AtualizarAsync(
@@ -84,7 +85,7 @@ public sealed class EventoService(
 
         await eventoRepository.SaveChangesAsync(cancellationToken);
 
-        return Map(evento, midias);
+        return Map(evento, midiaUrlResolver, midias);
     }
 
     public async Task<PagedResult<EventoResponse>> ListarAsync(
@@ -94,7 +95,7 @@ public sealed class EventoService(
         await listarEventosValidator.ValidateAndThrowAsync(request, cancellationToken);
 
         var (items, totalItems) = await eventoRepository.ListAsync(request, cancellationToken);
-        var mappedItems = items.Select(evento => Map(evento)).ToArray();
+        var mappedItems = items.Select(evento => Map(evento, midiaUrlResolver)).ToArray();
         var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)request.PageSize);
 
         return new PagedResult<EventoResponse>(
@@ -117,7 +118,10 @@ public sealed class EventoService(
         return true;
     }
 
-    private static EventoResponse Map(Evento evento, IReadOnlyCollection<MidiaEvento>? midiasOverride = null)
+    private static EventoResponse Map(
+        Evento evento,
+        IMidiaUrlResolver midiaUrlResolver,
+        IReadOnlyCollection<MidiaEvento>? midiasOverride = null)
     {
         var midias = midiasOverride ?? evento.Midias;
 
@@ -134,7 +138,7 @@ public sealed class EventoService(
                 .OrderBy(x => x.Ordem)
                 .Select(midia => new MidiaEventoResponse(
                     midia.Id,
-                    midia.Url,
+                    midiaUrlResolver.Resolve(midia.Url),
                     (int)midia.Tipo,
                     midia.Alt,
                     midia.Destaque,

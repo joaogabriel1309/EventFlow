@@ -34,6 +34,7 @@ type FiltroFormState = {
 type MidiaFormState = {
   id: string;
   url: string;
+  previewUrl?: string;
   tipo: number;
   alt: string;
   destaque: boolean;
@@ -87,12 +88,22 @@ function mapEventoToForm(evento: Evento): EventoFormState {
     midias: evento.midias.map((midia, index) => ({
       id: midia.id,
       url: midia.url,
+      previewUrl: midia.url,
       tipo: midia.tipo,
       alt: midia.alt ?? "",
       destaque: midia.destaque,
       ordem: midia.ordem || index + 1,
     })),
   };
+}
+
+function resolvePreviewUrl(midia: MidiaFormState) {
+  if (midia.previewUrl?.trim()) {
+    return midia.previewUrl.trim();
+  }
+
+  const value = midia.url.trim();
+  return value.startsWith("http://") || value.startsWith("https://") ? value : null;
 }
 
 export function AdminDashboard() {
@@ -120,6 +131,7 @@ export function AdminDashboard() {
         {
           id: crypto.randomUUID(),
           url: "",
+          previewUrl: undefined,
           tipo: 2,
           alt: "",
           destaque: current.midias.length === 0,
@@ -159,7 +171,7 @@ export function AdminDashboard() {
 
     try {
       const uploaded = await uploadMidia(file);
-      atualizarMidia(id, { url: uploaded.url });
+      atualizarMidia(id, { url: uploaded.key, previewUrl: uploaded.url });
       setFeedback("Arquivo enviado com sucesso.");
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Nao foi possivel enviar o arquivo.");
@@ -589,6 +601,25 @@ export function AdminDashboard() {
                   <div className="space-y-4">
                     {form.midias.map((midia) => (
                       <div key={midia.id} className="rounded-2xl border border-stone-200 bg-white p-4">
+                        {resolvePreviewUrl(midia) ? (
+                          <div className="mb-4 overflow-hidden rounded-[1.5rem] border border-stone-200 bg-stone-950/5">
+                            {midia.tipo === 3 ? (
+                              <video
+                                src={resolvePreviewUrl(midia) ?? undefined}
+                                controls
+                                className="max-h-72 w-full bg-stone-950 object-cover"
+                              />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={resolvePreviewUrl(midia) ?? ""}
+                                alt={midia.alt || "Preview da midia"}
+                                className="max-h-72 w-full object-cover"
+                              />
+                            )}
+                          </div>
+                        ) : null}
+
                         <div className="grid gap-4 lg:grid-cols-[1.5fr_180px_1fr_120px_auto]">
                           <label className="block">
                             <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-stone-500">
@@ -596,9 +627,17 @@ export function AdminDashboard() {
                             </span>
                             <input
                               value={midia.url}
-                              onChange={(event) => atualizarMidia(midia.id, { url: event.target.value })}
+                              onChange={(event) =>
+                                atualizarMidia(midia.id, {
+                                  url: event.target.value,
+                                  previewUrl:
+                                    event.target.value.startsWith("http://") || event.target.value.startsWith("https://")
+                                      ? event.target.value
+                                      : undefined,
+                                })
+                              }
                               className="w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-950 outline-none transition-colors focus:border-orange-500"
-                              placeholder="https://..."
+                              placeholder="https://... ou chave do storage"
                               required
                             />
                           </label>

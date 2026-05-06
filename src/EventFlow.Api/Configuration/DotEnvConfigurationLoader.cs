@@ -29,7 +29,7 @@ public static class DotEnvConfigurationLoader
                     continue;
                 }
 
-                var key = line[..separatorIndex].Trim();
+                var key = line[..separatorIndex].Trim().TrimStart('\uFEFF');
                 var value = line[(separatorIndex + 1)..].Trim().Trim('"');
 
                 if (!string.IsNullOrWhiteSpace(key))
