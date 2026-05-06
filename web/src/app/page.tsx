@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { formatarData, formatarPreco, listarEventos } from "@/lib/eventos";
 
 export default async function Home() {
@@ -113,9 +114,12 @@ export default async function Home() {
                       <span className="text-xs uppercase tracking-[0.22em] text-stone-400">
                         {evento.midias.length} midia(s)
                       </span>
-                      <button className="rounded-full bg-stone-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700">
+                      <Link
+                        href={`/eventos/${evento.id}`}
+                        className="rounded-full bg-stone-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700"
+                      >
                         Ver detalhes
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </article>

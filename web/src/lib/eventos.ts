@@ -45,6 +45,22 @@ export async function listarEventos() {
   return (await response.json()) as PagedResult<Evento>;
 }
 
+export async function obterEvento(id: string) {
+  const response = await fetch(`${getApiBaseUrl()}/api/eventos/${id}`, {
+    next: { revalidate: 30 },
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error("Nao foi possivel carregar o evento.");
+  }
+
+  return (await response.json()) as Evento;
+}
+
 export function formatarData(dataIso: string) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "medium",
